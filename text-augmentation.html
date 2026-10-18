@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Text Augmentation</title>
+<meta name="description" content="Synonym replacement, random insertion, swap, deletion, typos, back-translation and paraphrasing: what they do, how to implement them and when they flip the label.">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  .variants { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 6px; }
+  .variants li { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 0; color: var(--ink); font-size: 15px; }
+  .variants li .flag { display: block; font-size: 12px; color: var(--warn); margin-top: 2px; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: var(--ink-3); margin-top: 8px; }
+  .ds td:first-child { width: 28px; color: var(--ink-3); font-family: var(--mono); font-size: 12px; }
+  .ds td.lbl { font-size: 12px; white-space: nowrap; }
+  .ds td.aug { color: var(--ink); }
+  .lbl.pos { color: var(--how); } .lbl.neg { color: var(--warn); }
+</style>
+</head>
+<body>
+<div class="wrap page">
+<aside class="toc"></aside>
+<main>
+  <p class="eyebrow">03 · Augmentation</p>
+  <h1>Text augmentation</h1>
+  <p class="lede">Make new training sentences that <strong>mean the same thing and carry the same label</strong> but use different words. It's cheap and often helps on small datasets. It's also easy to get wrong, because one changed word can reverse a sentence's meaning.</p>
+
+  <h2 id="why-text">Why text is harder than images</h2>
+  <div class="www">
+    <div class="what"><b>What</b><p>Text augmentation applies small, label-preserving edits to sentences (substituting, inserting, reordering, deleting, or rewriting) to create additional training examples.</p></div>
+    <div class="how"><b>How</b><p>Edits happen at three levels: <strong>characters</strong> (typos), <strong>words</strong> (synonyms, swaps, deletions), and <strong>whole sentences</strong> (back-translation, paraphrasing with a language model).</p></div>
+    <div class="why"><b>Why</b><p>Labelled text is expensive. Every review needs a human. Augmentation shows the model that <em>"the film was great"</em> and <em>"the movie was excellent"</em> belong to the same class, so it learns meaning rather than memorising particular words.</p></div>
+  </div>
+  <div class="note"><b>The core difficulty</b>Images are <em>continuous</em>: rotate a cat by 5° and you still have a cat. Text is <em>discrete</em>, and there's no "slightly different" version of a word. <em>"good" → "not good"</em> is a one-word edit that flips the label. Every text technique trades <strong>diversity</strong> (how different the new sentence is) against <strong>fidelity</strong> (whether the label is still correct).</div>
+
+  <h2 id="lab">Interactive augmentation lab</h2>
+  <div class="demo">
+    <p class="demo-title">Try it on your own sentence</p>
+    <input type="text" id="tx-in" value="I did not enjoy this movie, the plot was boring and the acting was terrible.">
+    <div class="btn-row" id="tx-tech" style="margin-top:12px"></div>
+    <div class="controls">
+      <div class="control"><label>α: share of words changed <output id="tx-a-out">0.15</output></label><input type="range" id="tx-a" min="0.05" max="0.5" step="0.05" value="0.15"></div>
+      <div class="control"><label>variants <output id="tx-n-out">4</output></label><input type="range" id="tx-n" min="1" max="8" step="1" value="4"></div>
+    </div>
+    <div class="btn-row"><button class="btn primary" id="tx-go" type="button">Generate new variants</button></div>
+    <ul class="variants" id="tx-out"></ul>
+    <div class="legend"><span><mark class="chg">changed</mark></span><span><mark class="add">inserted</mark></span><span><mark class="del">deleted</mark></span><span style="color:var(--warn)">⚠ = label risk detected</span></div>
+    <p class="caption">The demo uses a small built-in synonym list so it works offline. In Python you'd use WordNet, which has about 117k synonym sets.</p>
+  </div>
+
+  <h2 id="eda">The four EDA operations</h2>
+  <p><strong>EDA</strong> (Easy Data Augmentation, Wei &amp; Zou, 2019) packages four word-level operations. A single parameter <code>α</code> controls how many words change: <code>n = max(1, α · sentence_length)</code>.</p>
+
+  <h3>1 · Synonym Replacement (SR)</h3>
+  <div class="www">
+    <div class="what"><b>What</b><p>Pick <code>n</code> non-stopwords at random and replace each with a synonym. <em>"The quick fox" → "The fast fox"</em>.</p></div>
+    <div class="how"><b>How</b><p>Skip stopwords (<em>the, is, and, not</em>…), because replacing them adds noise without adding meaning. Look up synonyms in WordNet and choose one at random.</p></div>
+    <div class="why"><b>Why</b><p>It teaches <strong>lexical invariance</strong>: the label depends on meaning, not on which specific word the reviewer happened to choose. This is the safest and most widely used operation.</p></div>
+  </div>
+<pre><code class="py">import random, nltk
+from nltk.corpus import wordnet
+nltk.download("wordnet"); nltk.download("omw-1.4")
+
+STOP = {"the","a","an","is","was","and","or","but","i","it","this","to","of","in","not","no","never"}
+
+def synonyms(word):
+    out = {l.name().replace("_", " ").lower()
+           for s in wordnet.synsets(word) for l in s.lemmas()}
+    out.discard(word)
+    return list(out)
+
+def synonym_replacement(sentence, n=1):
+    words = sentence.split()
+    candidates = [i for i, w in enumerate(words) if w.lower() not in STOP and synonyms(w)]
+    for i in random.sample(candidates, min(n, len(candidates))):
+        words[i] = random.choice(synonyms(words[i]))
+    return " ".join(words)</code></pre>
+
+  <h3>2 · Random Insertion (RI)</h3>
+  <div class="www">
+    <div class="what"><b>What</b><p>Take a synonym of a random word and insert it at a random position. <em>"The plot was boring" → "The plot was tedious boring"</em>.</p></div>
+    <div class="how"><b>How</b><p>Repeat <code>n</code> times. Because the inserted word is related to the sentence's own vocabulary, it stays on topic.</p></div>
+    <div class="why"><b>Why</b><p>It makes the model robust to <strong>extra or redundant words</strong>, which real reviews are full of. The result is often ungrammatical, and that's acceptable: bag-of-words and embedding-average models care much more about which words appear than about their order.</p></div>
+  </div>
+
+  <h3>3 · Random Swap (RS)</h3>
+  <div class="www">
+    <div class="what"><b>What</b><p>Pick two positions and swap the words, <code>n</code> times. This is the technique in <code>Text_Augmentation.ipynb</code>.</p></div>
+    <div class="how"><b>How</b><p><code>i, j = random.sample(range(len(words)), 2)</code>, then <code>words[i], words[j] = words[j], words[i]</code>.</p></div>
+    <div class="why"><b>Why and when</b><p>It encourages robustness to word order, which is useful for topic classification. It's <strong>risky for sentiment</strong>: swapping <em>"not"</em> moves the negation onto a different word, so <em>"not boring, just long"</em> can become <em>"boring, not just long"</em>.</p></div>
+  </div>
+
+  <h3>4 · Random Deletion (RD)</h3>
+  <div class="www">
+    <div class="what"><b>What</b><p>Delete each word independently with probability <code>p = α</code>. Always keep at least one word.</p></div>
+    <div class="how"><b>How</b><p><code>[w for w in words if random.random() &gt; p] or [random.choice(words)]</code></p></div>
+    <div class="why"><b>Why</b><p>This is <strong>dropout on the input</strong>. The model can't rely on any single word, so it has to spread its evidence across the whole sentence. The danger is deleting the one word that carries the label, such as <em>"not"</em>.</p></div>
+  </div>
+<pre><code class="py">def random_swap(sentence, n=1):
+    words = sentence.split()
+    for _ in range(n):
+        if len(words) &lt; 2: break
+        i, j = random.sample(range(len(words)), 2)
+        words[i], words[j] = words[j], words[i]
+    return " ".join(words)
+
+def random_deletion(sentence, p=0.1):
+    words = sentence.split()
+    kept = [w for w in words if random.random() &gt; p]
+    return " ".join(kept or [random.choice(words)])
+
+def random_insertion(sentence, n=1):
+    words = sentence.split()
+    for _ in range(n):
+        pool = [w for w in words if synonyms(w)]
+        if not pool: break
+        words.insert(random.randint(0, len(words)), random.choice(synonyms(random.choice(pool))))
+    return " ".join(words)
+
+def eda(sentence, alpha=0.1, n_aug=4):
+    n = max(1, int(alpha * len(sentence.split())))
+    ops = [lambda s: synonym_replacement(s, n), lambda s: random_insertion(s, n),
+           lambda s: random_swap(s, n),         lambda s: random_deletion(s, alpha)]
+    return [random.choice(ops)(sentence) for _ in range(n_aug)]</code></pre>
+  <div class="tip"><b>What the EDA paper found</b>Gains were largest on <strong>small</strong> training sets: about +3% average accuracy with 500 examples, and under +1% on full datasets. Training with EDA on 50% of the data matched training without EDA on 100%. Suggested settings: <code>α ≈ 0.05–0.1</code>, with more variants per sentence when data is scarce (16 for ~500 examples, 4 for 5,000+).</div>
+
+  <h2 id="char">Character-level noise (typos)</h2>
+  <div class="www">
+    <div class="what"><b>What</b><p>Substitute, swap, delete or insert individual characters: <em>"quick" → "qiuck", "quock", "quik"</em>.</p></div>
+    <div class="how"><b>How</b><p>A realistic version substitutes a <strong>keyboard neighbour</strong> (<em>e → w, r, d</em>) instead of a random letter. The notebook's version picks any random letter, including over spaces and punctuation.</p></div>
+    <div class="why"><b>Why</b><p>Real user text, such as tweets, chat, OCR output and search queries, is noisy. A model trained only on clean text sees <em>"terible"</em> as an unknown token and loses that evidence. Typo augmentation teaches it to cope.</p></div>
+  </div>
+<pre><code class="py">NEIGHBOURS = {"a":"qwsz","e":"wrds","i":"ujko","o":"iklp","r":"edft","t":"rfgy","s":"awedxz","n":"bhjm"}
+
+def keyboard_typo(sentence, n=1):
+    chars = list(sentence)
+    idx = [i for i, c in enumerate(chars) if c.lower() in NEIGHBOURS]
+    for i in random.sample(idx, min(n, len(idx))):
+        chars[i] = random.choice(NEIGHBOURS[chars[i].lower()])
+    return "".join(chars)</code></pre>
+
+  <h2 id="sentence">Sentence-level: back-translation and paraphrasing</h2>
+  <h3>Back-translation</h3>
+  <div class="www">
+    <div class="what"><b>What</b><p>Translate to a pivot language and back: <em>EN → FR → EN</em>. <em>"The quick brown fox jumps" → "Le renard brun rapide saute" → "The fast brown fox leaps"</em>.</p></div>
+    <div class="how"><b>How</b><p>Use a pretrained translation model. The notebook mocks this step. Below is a real version using MarianMT from Hugging Face. Sampling during decoding (<code>do_sample=True</code>) gives more varied paraphrases.</p></div>
+    <div class="why"><b>Why</b><p>Translation models are trained to <strong>preserve meaning</strong>, so the round trip gives fluent, grammatical paraphrases with new wording <em>and</em> new structure, which word-level EDA can't produce. It was popularised for machine translation by Sennrich et al. (2016) and used for text classification in UDA (Xie et al., 2020).</p></div>
+  </div>
+<pre><code class="py">from transformers import MarianMTModel, MarianTokenizer
+
+def load(name):
+    return MarianTokenizer.from_pretrained(name), MarianMTModel.from_pretrained(name)
+
+en_fr = load("Helsinki-NLP/opus-mt-en-fr")
+fr_en = load("Helsinki-NLP/opus-mt-fr-en")
+
+def translate(texts, tok_model, sample=False):
+    tok, model = tok_model
+    batch = tok(texts, return_tensors="pt", padding=True, truncation=True)
+    out = model.generate(**batch, do_sample=sample, top_k=50, max_new_tokens=128)
+    return tok.batch_decode(out, skip_special_tokens=True)
+
+def back_translate(texts):
+    return translate(translate(texts, en_fr), fr_en, sample=True)
+
+back_translate(["The quick brown fox jumps over the lazy dog."])</code></pre>
+
+  <h3>Paraphrasing with a language model</h3>
+  <p>Prompt a seq2seq model (T5, BART) or an LLM: <em>"Rewrite this review in different words. Keep the sentiment unchanged."</em> This gives the most diverse and fluent output, at the highest compute cost. Because the model is generating text, check a sample of outputs: it can drift in sentiment, add facts, or tone down strong opinions.</p>
+
+  <h3>Embedding-based and contextual replacement</h3>
+  <div class="www">
+    <div class="what"><b>What</b><p>Replace a word with its nearest neighbour in an embedding space (word2vec / GloVe), or let a masked language model (BERT) fill in a masked word using the surrounding context.</p></div>
+    <div class="how"><b>How</b><p>Similarity is usually <strong>cosine similarity</strong>: <code>cos(a,b) = a·b / (‖a‖‖b‖)</code>. In the notebook's toy vectors, <code>quick=[0.10,0.20]</code> and <code>fast=[0.11,0.19]</code> have cosine ≈ 0.998, so they're near-synonyms.</p></div>
+    <div class="why"><b>Why, and the catch</b><p>Embeddings cover slang and domain words that WordNet doesn't. But they encode <strong>"used in similar contexts"</strong>, not <strong>"means the same"</strong>. In word2vec, <em>"bad"</em> is one of the closest neighbours of <em>"good"</em>, because both appear in sentences like "the movie was ___". For sentiment tasks, that substitution flips the label.</p></div>
+  </div>
+<pre><code class="py">import torch
+import torch.nn.functional as F
+quick, fast = torch.tensor([0.10, 0.20]), torch.tensor([0.11, 0.19])
+F.cosine_similarity(quick, fast, dim=0)   # tensor(0.9981)</code></pre>
+
+  <h2 id="compare">Choosing a technique</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Technique</th><th>Diversity</th><th>Label safety</th><th>Cost</th><th>Good for</th></tr>
+    <tr><td>Synonym replacement</td><td>Low–med</td><td>High</td><td>Very low</td><td>Almost any classification task</td></tr>
+    <tr><td>Random insertion</td><td>Low</td><td>High</td><td>Very low</td><td>Bag-of-words / short text</td></tr>
+    <tr><td>Random swap</td><td>Low</td><td>Medium</td><td>Very low</td><td>Topic classification (not sentiment with negations)</td></tr>
+    <tr><td>Random deletion</td><td>Low</td><td>Medium</td><td>Very low</td><td>Long texts with redundant words</td></tr>
+    <tr><td>Character typos</td><td>Low</td><td>High</td><td>Very low</td><td>Noisy user text, search, OCR</td></tr>
+    <tr><td>Embedding replacement</td><td>Medium</td><td><span style="color:var(--warn)">Low for sentiment</span></td><td>Low</td><td>Topic / intent, domain vocabularies</td></tr>
+    <tr><td>Back-translation</td><td>High</td><td>High</td><td>Medium (GPU)</td><td>Sentiment, intent, any sentence classification</td></tr>
+    <tr><td>LLM paraphrasing</td><td>Very high</td><td>Medium–high</td><td>High</td><td>Few-shot / very small datasets</td></tr>
+  </table></div>
+
+  <h2 id="label-risk">When augmentation breaks the label</h2>
+  <div class="warn"><b>Watch for these</b>
+    <ul style="margin:6px 0 0">
+      <li><strong>Negation</strong>: deleting or moving <em>not / never / no / n't</em> reverses sentiment.</li>
+      <li><strong>Antonym-ish neighbours</strong>: embedding replacement can turn <em>good → bad</em> or <em>love → hate</em>.</li>
+      <li><strong>Polysemy</strong>: WordNet's synonym of <em>"light"</em> (weight) might be <em>"illumination"</em> (lamp), producing nonsense.</li>
+      <li><strong>Token-level tasks</strong>: for NER or QA, insertion and deletion shift positions, so the span labels must be updated as well.</li>
+      <li><strong>Domain terms</strong>: in medical or legal text, "synonyms" are often not interchangeable.</li>
+    </ul>
+  </div>
+  <p>Practical defences: exclude negation words and protected terms from edits, keep <code>α</code> small, and <strong>read 20–30 augmented samples by hand</strong> before training. If you have a reasonable model already, you can also discard augmented samples whose predicted label differs from the original.</p>
+
+  <h2 id="dataset">Augmenting a whole dataset: the practice activity</h2>
+  <p>Your activity deliverable: augment 10 sample reviews and reflect on the results. Below are 10 reviews to start from. Choose a technique and see the whole augmented dataset at once.</p>
+  <div class="demo">
+    <p class="demo-title">Dataset mode · 10 reviews</p>
+    <div class="btn-row" id="ds-tech"></div>
+    <div class="btn-row"><button class="btn primary" id="ds-go" type="button">Re-augment all</button></div>
+    <div class="table-wrap ds"><table id="ds-table"></table></div>
+  </div>
+<pre><code class="py">import pandas as pd
+from sklearn.model_selection import train_test_split
+
+df = pd.DataFrame({"review": reviews, "label": labels})
+
+# 1. split FIRST, so augmented copies of a test sentence can never land in train
+train_df, test_df = train_test_split(df, test_size=0.2, stratify=df.label, random_state=42)
+
+# 2. augment the training split only; keep the originals
+rows = []
+for _, r in train_df.iterrows():
+    rows.append({"review": r.review, "label": r.label, "source": "original"})
+    for aug in eda(r.review, alpha=0.1, n_aug=4):
+        rows.append({"review": aug, "label": r.label, "source": "eda"})
+train_aug = pd.DataFrame(rows).drop_duplicates("review")
+print(len(train_df), "→", len(train_aug))</code></pre>
+  <div class="tip"><b>Reflection prompts for your notebook</b>
+    <ol style="margin:6px 0 0">
+      <li>Which augmented reviews would a human label differently from the original? Which technique caused them?</li>
+      <li>How did raising <code>α</code> change fluency? At what point did the text stop being a believable review?</li>
+      <li>Which technique gave the most <em>useful</em> diversity: new phrasing that still reads like a real review?</li>
+      <li>Why must augmentation happen <em>after</em> the train/test split?</li>
+    </ol>
+  </div>
+</main>
+</div>
+
+<script src="assets/site.js"></script>
+<script>
+(function () {
+  // ---- tiny offline thesaurus (real code uses WordNet) ----
+  const SYN = {
+    movie:["film","picture"], film:["movie","picture"], absolutely:["completely","totally"], wonderful:["fantastic","marvelous","great"],
+    acting:["performance","performances"], brilliant:["superb","excellent"], loved:["adored","enjoyed"], love:["adore","enjoy"],
+    story:["plot","narrative"], plot:["storyline","story"], ending:["finale","conclusion"], felt:["seemed"], rushed:["hurried","hasty"],
+    terrible:["awful","dreadful","horrible"], waste:["squandering"], time:["hours"], boring:["dull","tedious"], characters:["roles"],
+    dull:["bland","lifeless"], beautiful:["lovely","gorgeous"], amazing:["incredible","stunning"], soundtrack:["score","music"],
+    enjoy:["like","appreciate"], food:["meal","dishes"], great:["excellent","terrific"], service:["staff"], quick:["fast","prompt","speedy"],
+    product:["item"], broke:["failed","snapped"], very:["really","extremely"], disappointing:["underwhelming","unsatisfying"],
+    excellent:["outstanding","superb"], quality:["craftsmanship","build"], fast:["quick","speedy"], delivery:["shipping"],
+    highly:["strongly"], recommend:["endorse","suggest"], hotel:["inn","lodge"], room:["suite","quarters"], dirty:["filthy","grimy"],
+    staff:["employees","workers"], rude:["impolite","discourteous"], brown:["dark","chestnut"], jumps:["leaps","springs"],
+    lazy:["idle","sluggish"], dog:["hound","pup"], good:["fine","decent"], bad:["poor","awful"], happy:["glad","pleased"],
+    sad:["unhappy","gloomy"], really:["truly","genuinely"], big:["large","huge"], small:["little","tiny"], fun:["enjoyable","entertaining"],
+    powerful:["strong","potent"], learning:["training"], loves:["adores","enjoys"], programming:["coding"], days:["mornings"],
+    awful:["terrible","dreadful"], slow:["sluggish","unhurried"], nice:["pleasant","lovely"], price:["cost"], cheap:["inexpensive"],
+  };
+  const STOP = new Set("i me my we our you he she it its they them the a an and or but if of at by for with about to from in on is was were be been are am this that these those do did does not no never n't so too very just than then there here as all at".split(" "));
+  const NEG = new Set(["not", "no", "never", "n't", "nothing", "nobody", "neither", "nor", "didn't", "don't", "doesn't", "isn't", "wasn't"]);
+  const NB = { a:"qwsz", b:"vghn", c:"xdfv", d:"serfcx", e:"wrds", f:"drtgvc", g:"ftyhbv", h:"gyujnb", i:"ujko", j:"huikmn", k:"jiolm", l:"kop", m:"njk", n:"bhjm", o:"iklp", p:"ol", r:"edft", s:"awedxz", t:"rfgy", u:"yhji", v:"cfgb", w:"qase", y:"tghu" };
+
+  let seed = 7;
+  const rnd = () => { seed |= 0; seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const pick = a => a[Math.floor(rnd() * a.length)];
+  const sample = (a, k) => { const c = a.slice(), o = []; while (o.length < k && c.length) o.push(c.splice(Math.floor(rnd() * c.length), 1)[0]); return o; };
+
+  // token = { w: word core, p: trailing punctuation, m: mark }
+  const tok = s => s.trim().split(/\s+/).filter(Boolean).map(t => { const m = t.match(/^(.*?)([.,!?;:]*)$/); return { w: m[1], p: m[2], m: "" }; });
+  const low = w => w.toLowerCase();
+  const syn = w => SYN[low(w)] || [];
+  const keepCase = (src, w) => (src[0] && src[0] === src[0].toUpperCase() && src[0] !== src[0].toLowerCase() ? w[0].toUpperCase() + w.slice(1) : w);
+  const isNeg = w => NEG.has(low(w)) || /n't$/i.test(w);
+
+  const OPS = {
+    "Synonym replacement": (T, n) => {
+      const idx = T.map((t, i) => i).filter(i => !STOP.has(low(T[i].w)) && syn(T[i].w).length);
+      sample(idx, n).forEach(i => { T[i].w = keepCase(T[i].w, pick(syn(T[i].w))); T[i].m = "chg"; });
+      return { T, risk: "" };
+    },
+    "Random insertion": (T, n) => {
+      for (let k = 0; k < n; k++) {
+        const pool = T.filter(t => t.m !== "add" && syn(t.w).length); if (!pool.length) break;
+        T.splice(Math.floor(rnd() * (T.length + 1)), 0, { w: pick(syn(pick(pool).w)), p: "", m: "add" });
+      }
+      return { T, risk: "" };
+    },
+    "Random swap": (T, n) => {
+      let risk = "";
+      for (let k = 0; k < n && T.length > 1; k++) {
+        const [i, j] = sample(T.map((_, x) => x), 2);
+        if (isNeg(T[i].w) || isNeg(T[j].w)) risk = "a negation word was moved, so the sentiment may now attach to a different word";
+        [T[i].w, T[j].w] = [T[j].w, T[i].w]; T[i].m = T[j].m = "chg";
+      }
+      return { T, risk };
+    },
+    "Random deletion": (T, n, a) => {
+      let risk = "", kept = 0;
+      T.forEach(t => { if (rnd() < a) { t.m = "del"; if (isNeg(t.w)) risk = "a negation word was deleted, so the label may be flipped"; } else kept++; });
+      if (!kept) T[Math.floor(rnd() * T.length)].m = "";
+      return { T, risk };
+    },
+    "Keyboard typos": (T, n) => {
+      const idx = T.map((t, i) => i).filter(i => T[i].w.length > 2);
+      sample(idx, n).forEach(i => {
+        const w = T[i].w, pos = [...w].map((c, k) => k).filter(k => NB[w[k].toLowerCase()]);
+        if (!pos.length) return; const k = pick(pos), kind = rnd();
+        if (kind < 0.6) T[i].w = w.slice(0, k) + pick(NB[w[k].toLowerCase()]) + w.slice(k + 1);
+        else if (kind < 0.8 && k < w.length - 1) T[i].w = w.slice(0, k) + w[k + 1] + w[k] + w.slice(k + 2);
+        else T[i].w = w.slice(0, k) + w.slice(k + 1);
+        T[i].m = "chg";
+      });
+      return { T, risk: "" };
+    },
+    "Mixed EDA": null,
+  };
+  OPS["Mixed EDA"] = (T, n, a) => OPS[pick(["Synonym replacement", "Random insertion", "Random swap", "Random deletion"])](T, n, a);
+
+  const esc = s => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  const render = T => T.map(t => {
+    const txt = esc(t.w) + esc(t.p);
+    return t.m ? `<mark class="${t.m}">${txt}</mark>` : txt;
+  }).join(" ");
+  function augment(s, op, a) {
+    const T = tok(s); if (!T.length) return { html: "", risk: "" };
+    const n = Math.max(1, Math.round(a * T.length));
+    const r = OPS[op](T, n, a);
+    return { html: render(r.T), risk: r.risk };
+  }
+
+  // ---- single-sentence lab ----
+  const techBox = document.getElementById("tx-tech"), inEl = document.getElementById("tx-in"), outEl = document.getElementById("tx-out");
+  const aEl = document.getElementById("tx-a"), nEl = document.getElementById("tx-n");
+  let tech = "Synonym replacement";
+  const mkTech = (box, getter, setter, cb) => Object.keys(OPS).forEach(k => {
+    const b = document.createElement("button"); b.className = "btn"; b.type = "button"; b.textContent = k; b.setAttribute("aria-pressed", k === getter());
+    b.onclick = () => { setter(k); box.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); cb(); };
+    box.appendChild(b);
+  });
+  function runLab() {
+    const a = +aEl.value, n = +nEl.value;
+    document.getElementById("tx-a-out").textContent = a.toFixed(2); document.getElementById("tx-n-out").textContent = n;
+    outEl.innerHTML = "";
+    for (let i = 0; i < n; i++) {
+      const r = augment(inEl.value, tech, a);
+      const li = document.createElement("li"); li.innerHTML = r.html + (r.risk ? `<span class="flag">⚠ ${r.risk}</span>` : ""); outEl.appendChild(li);
+    }
+  }
+  mkTech(techBox, () => tech, k => (tech = k), runLab);
+  document.getElementById("tx-go").onclick = runLab;
+  inEl.oninput = runLab; aEl.oninput = runLab; nEl.oninput = runLab;
+  runLab();
+
+  // ---- dataset mode ----
+  const DATA = [
+    ["The movie was absolutely wonderful and the acting was brilliant.", "pos"],
+    ["I loved the story but the ending felt rushed.", "pos"],
+    ["This was a terrible waste of time.", "neg"],
+    ["The plot was boring and the characters were dull.", "neg"],
+    ["A beautiful film with an amazing soundtrack.", "pos"],
+    ["I did not enjoy this movie at all.", "neg"],
+    ["The food was great and the service was quick.", "pos"],
+    ["The product broke after two days, very disappointing.", "neg"],
+    ["Excellent quality and fast delivery, highly recommend.", "pos"],
+    ["The hotel room was dirty and the staff were rude.", "neg"],
+  ];
+  let dsTech = "Synonym replacement";
+  const table = document.getElementById("ds-table");
+  function runDs() {
+    table.innerHTML = "<tr><th>#</th><th>Original</th><th>Augmented</th><th>Label</th></tr>" + DATA.map(([s, l], i) => {
+      const r = augment(s, dsTech, 0.15);
+      return `<tr><td>${i + 1}</td><td>${esc(s)}</td><td class="aug">${r.html}${r.risk ? `<span style="display:block;font-size:12px;color:var(--warn)">⚠ ${r.risk}</span>` : ""}</td><td class="lbl ${l}">${l === "pos" ? "positive" : "negative"}</td></tr>`;
+    }).join("");
+  }
+  mkTech(document.getElementById("ds-tech"), () => dsTech, k => (dsTech = k), runDs);
+  document.getElementById("ds-go").onclick = runDs;
+  runDs();
+})();
+</script>
+</body>
+</html>
