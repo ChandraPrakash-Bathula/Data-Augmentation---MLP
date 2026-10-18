@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perceptron to MLP</title>
+<meta name="description" content="From a single perceptron to the MNIST multi-layer perceptron: activations, ReLU, softmax, cross-entropy and the training loop.">
+<link rel="stylesheet" href="assets/style.css">
+<style>
+  canvas.plot { width: 100%; height: 260px; display: block; background: var(--bg); border-radius: 8px; border: 1px solid var(--line); }
+  .bars { display: grid; gap: 6px; margin-top: 10px; }
+  .bar-row { display: grid; grid-template-columns: 70px 1fr 56px; gap: 8px; align-items: center; font-size: 13px; }
+  .bar-track { background: var(--surface-2); border-radius: 4px; height: 16px; overflow: hidden; }
+  .bar-fill { background: var(--accent); height: 100%; transition: width .15s; }
+</style>
+</head>
+<body>
+<div class="wrap page">
+<aside class="toc"></aside>
+<main>
+  <p class="eyebrow">02 · Deep Learning Basics</p>
+  <h1>From one perceptron to a multi-layer perceptron</h1>
+  <p class="lede">The MNIST baseline in <code>MNIST.ipynb</code> is only about 15 lines of PyTorch. This page walks through what each line does and why the architecture looks the way it does.</p>
+
+  <h2 id="perceptron">The perceptron: one neuron</h2>
+  <div class="www">
+    <div class="what"><b>What</b><p>A perceptron (Rosenblatt, 1958) takes inputs <code>x₁…xₙ</code>, multiplies each by a weight, adds a bias, and fires if the total crosses zero: <code>ŷ = step(w·x + b)</code>.</p></div>
+    <div class="how"><b>How</b><p>Geometrically, <code>w·x + b = 0</code> is a straight line (a hyperplane in higher dimensions). Points on one side are class 1 and points on the other side are class 0. Learning means moving that line.</p></div>
+    <div class="why"><b>Why it's not enough</b><p>A single line can only separate <strong>linearly separable</strong> data. The classic counterexample is XOR: no single straight line splits <code>{(0,1),(1,0)}</code> from <code>{(0,0),(1,1)}</code>.</p></div>
+  </div>
+  <figure class="figure">
+    <svg viewBox="0 0 520 200" role="img" aria-label="AND is linearly separable, XOR is not">
+      <g font-size="12" text-anchor="middle">
+        <text x="120" y="18" class="svg-ink" font-weight="600">AND: one line works</text>
+        <text x="390" y="18" class="svg-ink" font-weight="600">XOR: no single line works</text>
+        <g transform="translate(40,30)">
+          <rect width="160" height="140" fill="none" class="svg-line"/>
+          <circle cx="20" cy="120" r="8" fill="none" stroke="var(--warn)" stroke-width="2"/><circle cx="140" cy="120" r="8" fill="none" stroke="var(--warn)" stroke-width="2"/>
+          <circle cx="20" cy="20" r="8" fill="none" stroke="var(--warn)" stroke-width="2"/><circle cx="140" cy="20" r="8" class="svg-accf"/>
+          <line x1="60" y1="0" x2="160" y2="100" stroke="var(--how)" stroke-width="2" stroke-dasharray="5 4"/>
+        </g>
+        <g transform="translate(310,30)">
+          <rect width="160" height="140" fill="none" class="svg-line"/>
+          <circle cx="20" cy="120" r="8" fill="none" stroke="var(--warn)" stroke-width="2"/><circle cx="140" cy="120" r="8" class="svg-accf"/>
+          <circle cx="20" cy="20" r="8" class="svg-accf"/><circle cx="140" cy="20" r="8" fill="none" stroke="var(--warn)" stroke-width="2"/>
+          <text x="80" y="75" class="svg-ink3">needs 2 lines →</text><text x="80" y="92" class="svg-ink3">a hidden layer</text>
+        </g>
+        <text x="260" y="195" class="svg-ink3" font-size="11">● class 1   ○ class 0</text>
+      </g>
+    </svg>
+  </figure>
+
+  <h2 id="why-nonlinear">Why stacking needs a non-linearity</h2>
+  <p>The fix for XOR is to stack neurons in layers. But stacking linear layers alone gains nothing, because two linear maps compose into one linear map:</p>
+<pre><code class="py">h = W1 @ x + b1
+y = W2 @ h + b2  =  (W2 @ W1) @ x + (W2 @ b1 + b2)  =  W' @ x + b'   # still one straight line</code></pre>
+  <p>Put a non-linear <strong>activation function</strong> between the layers and that collapse can't happen. With enough hidden units, an MLP can approximate any continuous function on a bounded region. This is the <em>Universal Approximation Theorem</em>.</p>
+
+  <h2 id="activations">Activation functions and why ReLU won</h2>
+  <div class="demo">
+    <p class="demo-title">Activation explorer</p>
+    <div class="btn-row" id="act-btns"></div>
+    <label class="check"><input type="checkbox" id="act-deriv" checked> show derivative (what backprop multiplies by)</label>
+    <canvas class="plot" id="act-plot" style="margin-top:10px"></canvas>
+    <p class="caption" id="act-note"></p>
+  </div>
+  <div class="table-wrap"><table>
+    <tr><th>Function</th><th>Formula</th><th>Max derivative</th><th>Trade-off</th></tr>
+    <tr><td>Sigmoid</td><td><code>1 / (1 + e⁻ˣ)</code></td><td>0.25</td><td>Saturates at both ends. Gradients shrink layer after layer (<strong>vanishing gradient</strong>).</td></tr>
+    <tr><td>Tanh</td><td><code>(eˣ − e⁻ˣ)/(eˣ + e⁻ˣ)</code></td><td>1.0</td><td>Zero-centred, which helps, but still saturates.</td></tr>
+    <tr><td><strong>ReLU</strong></td><td><code>max(0, x)</code></td><td>1.0</td><td>Gradient is exactly 1 for positive inputs, so it doesn't vanish. Very cheap to compute. Units can "die" if they're always negative.</td></tr>
+  </table></div>
+  <div class="www"><div class="why"><b>Why ReLU, concretely</b><p>Backprop multiplies one derivative per layer. With sigmoid, ten layers multiply at most <code>0.25¹⁰ ≈ 0.000001</code>, so the early layers barely learn. With ReLU, active paths multiply by <code>1¹⁰ = 1</code>. That property is a big reason deep networks became trainable after about 2011.</p></div></div>
+
+  <h2 id="architecture">The MNIST MLP, layer by layer</h2>
+<pre><code class="py">class MLP(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.flatten = nn.Flatten()
+        self.fc1 = nn.Linear(28*28, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 10)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.flatten(x)          # (B,1,28,28) → (B,784)
+        x = self.relu(self.fc1(x))   # (B,784)     → (B,128)
+        x = self.relu(self.fc2(x))   # (B,128)     → (B,64)
+        return self.fc3(x)           # (B,64)      → (B,10) raw scores ("logits")</code></pre>
+  <h3>Counting the parameters</h3>
+  <p>An <code>nn.Linear(in, out)</code> layer has an <code>out × in</code> weight matrix plus <code>out</code> biases.</p>
+  <div class="table-wrap"><table>
+    <tr><th>Layer</th><th>Shape out</th><th>Weights</th><th>Biases</th><th>Total</th></tr>
+    <tr><td>Flatten</td><td>(B, 784)</td><td>–</td><td>–</td><td>0</td></tr>
+    <tr><td>fc1 + ReLU</td><td>(B, 128)</td><td>784 × 128 = 100,352</td><td>128</td><td>100,480</td></tr>
+    <tr><td>fc2 + ReLU</td><td>(B, 64)</td><td>128 × 64 = 8,192</td><td>64</td><td>8,256</td></tr>
+    <tr><td>fc3</td><td>(B, 10)</td><td>64 × 10 = 640</td><td>10</td><td>650</td></tr>
+    <tr><td colspan="4"><strong>Total trainable parameters</strong></td><td><strong>109,386</strong></td></tr>
+  </table></div>
+<pre><code class="py">sum(p.numel() for p in model.parameters())   # 109386</code></pre>
+  <div class="note"><b>Notice where the parameters sit</b>92% of them are in <code>fc1</code>, because every one of the 784 pixels connects to every hidden unit. On CIFAR-10 the input is 32×32×3 = 3,072 values, so the same first layer has about 393k weights. This is why MLPs scale poorly on images, and why <a href="why-augmentation.html">augmentation matters more</a> when the parameter count is large compared with the amount of data.</div>
+
+  <h2 id="softmax">Logits, softmax and cross-entropy</h2>
+  <div class="www">
+    <div class="what"><b>What</b><p>The last layer outputs 10 unbounded scores (<strong>logits</strong>). <strong>Softmax</strong> turns them into probabilities: <code>pᵢ = eᶻⁱ / Σⱼ eᶻʲ</code>. <strong>Cross-entropy</strong> is <code>−log(p_true)</code>, so the loss is low when the correct class gets high probability.</p></div>
+    <div class="how"><b>How</b><p><code>nn.CrossEntropyLoss</code> applies log-softmax and the loss in one numerically stable step. That's why the model has <strong>no softmax at the end</strong>. Adding one would apply it twice.</p></div>
+    <div class="why"><b>Why</b><p>Cross-entropy punishes confident mistakes severely. Probability 0.01 on the true class costs <code>−log(0.01) = 4.6</code>, while 0.5 costs only <code>0.69</code>. That gives strong gradients exactly where the model is most wrong.</p></div>
+  </div>
+  <div class="demo">
+    <p class="demo-title">Softmax playground · true class = "7"</p>
+    <div class="controls" id="sm-controls"></div>
+    <div class="bars" id="sm-bars"></div>
+    <p class="mono" id="sm-loss" style="margin:10px 0 0;font-size:14px"></p>
+  </div>
+
+  <h2 id="training">One training step, five lines</h2>
+<pre><code class="py">criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr=0.001)
+
+for epoch in range(5):
+    for images, labels in train_loader:      # 5000 / 64 → 79 batches per epoch
+        outputs = model(images)              # 1. forward pass → logits
+        loss = criterion(outputs, labels)    # 2. how wrong are we?
+        optimizer.zero_grad()                # 3. clear old gradients (they accumulate!)
+        loss.backward()                      # 4. backprop: ∂loss/∂w for all 109,386 w
+        optimizer.step()                     # 5. w ← w − lr · (adaptive) gradient</code></pre>
+  <div class="table-wrap"><table>
+    <tr><th>Term</th><th>Meaning</th><th>In the baseline</th></tr>
+    <tr><td>Batch</td><td>Samples processed before one weight update</td><td>64</td></tr>
+    <tr><td>Iteration</td><td>One forward + backward + update</td><td>79 per epoch</td></tr>
+    <tr><td>Epoch</td><td>One full pass over the training set</td><td>5</td></tr>
+    <tr><td>Adam</td><td>SGD with momentum and a per-parameter adaptive step size</td><td>lr = 0.001</td></tr>
+  </table></div>
+
+  <h2 id="evaluation">Evaluating properly</h2>
+  <p>The notebook checks 10 test images by eye. For the assignment you need <strong>accuracy over the full 10,000-image test set</strong>, computed the same way every time:</p>
+<pre><code class="py">def accuracy(model, loader):
+    model.eval()                      # switches off dropout/batch-norm training behaviour
+    correct = total = 0
+    with torch.no_grad():             # no graph → faster, less memory
+        for x, y in loader:
+            correct += (model(x).argmax(1) == y).sum().item()
+            total   += y.size(0)
+    model.train()
+    return correct / total</code></pre>
+  <div class="tip"><b>Track both numbers</b>Compute accuracy on the <strong>training</strong> set and on the <strong>test</strong> set after every epoch. The gap between them is your overfitting meter, and it's the main quantity the assignment asks you to explain.</div>
+
+  <h2 id="limits">What an MLP can't see</h2>
+  <p><code>nn.Flatten()</code> discards the 2D layout. To an MLP, pixel (5,5) and pixel (5,6) are just inputs #145 and #146. It has no built-in idea that they're neighbours. Two consequences:</p>
+  <ul>
+    <li>If you shuffle the pixel order of every image with one fixed permutation, an MLP trains to the same accuracy. A CNN would not.</li>
+    <li>A digit shifted 2 pixels to the right activates a completely different set of weights. The MLP has to <em>learn</em> shift tolerance from examples. Augmentation supplies those examples.</li>
+  </ul>
+  <p>That last point is the bridge to the rest of this week. Augmentation is how we teach a model invariances that its architecture doesn't provide.</p>
+</main>
+</div>
+
+<script src="assets/site.js"></script>
+<script>
+// ---------- activation plot ----------
+(function () {
+  const fns = {
+    ReLU:    { f: x => Math.max(0, x), d: x => (x > 0 ? 1 : 0), note: "ReLU: output = input for x > 0, otherwise 0. Derivative is a clean 1 or 0." },
+    Sigmoid: { f: x => 1 / (1 + Math.exp(-x)), d: x => { const s = 1 / (1 + Math.exp(-x)); return s * (1 - s); }, note: "Sigmoid: squashes to (0,1). Derivative peaks at only 0.25 and is ~0 for |x| > 5 (saturation)." },
+    Tanh:    { f: Math.tanh, d: x => 1 - Math.tanh(x) ** 2, note: "Tanh: squashes to (−1,1), zero-centred. Still saturates at the ends." },
+    "Leaky ReLU": { f: x => (x > 0 ? x : 0.1 * x), d: x => (x > 0 ? 1 : 0.1), note: "Leaky ReLU: small slope for x < 0 so units can't fully 'die'. PyTorch's default slope is 0.01; this plot uses 0.1 so you can see it." },
+  };
+  let cur = "ReLU";
+  const cv = document.getElementById("act-plot"), btns = document.getElementById("act-btns"), dChk = document.getElementById("act-deriv");
+  function draw() {
+    const dpr = devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    const g = cv.getContext("2d"); g.scale(dpr, dpr);
+    const xmin = -6, xmax = 6, ymin = -1.5, ymax = 3;
+    const X = x => ((x - xmin) / (xmax - xmin)) * W, Y = y => H - ((y - ymin) / (ymax - ymin)) * H;
+    g.strokeStyle = cssVar("--line"); g.lineWidth = 1;
+    for (let x = xmin; x <= xmax; x++) { g.beginPath(); g.moveTo(X(x), 0); g.lineTo(X(x), H); g.stroke(); }
+    for (let y = -1; y <= 3; y++) { g.beginPath(); g.moveTo(0, Y(y)); g.lineTo(W, Y(y)); g.stroke(); }
+    g.strokeStyle = cssVar("--ink-3"); g.beginPath(); g.moveTo(0, Y(0)); g.lineTo(W, Y(0)); g.moveTo(X(0), 0); g.lineTo(X(0), H); g.stroke();
+    g.fillStyle = cssVar("--ink-3"); g.font = "11px system-ui";
+    [-1, 1, 2].forEach(y => g.fillText(y, X(0) + 4, Y(y) - 3)); [-4, -2, 2, 4].forEach(x => g.fillText(x, X(x) + 3, Y(0) + 13));
+    const line = (fn, col, dash) => {
+      g.strokeStyle = col; g.lineWidth = 2.5; g.setLineDash(dash || []); g.beginPath();
+      for (let i = 0; i <= W; i++) { const x = xmin + (i / W) * (xmax - xmin); const y = fn(x); i ? g.lineTo(i, Y(y)) : g.moveTo(i, Y(y)); }
+      g.stroke(); g.setLineDash([]);
+    };
+    line(fns[cur].f, cssVar("--s1"));
+    if (dChk.checked) line(fns[cur].d, cssVar("--s2"), [6, 4]);
+    g.font = "12px system-ui"; g.fillStyle = cssVar("--s1"); g.fillText("f(x)", 10, 18);
+    if (dChk.checked) { g.fillStyle = cssVar("--s2"); g.fillText("- - f′(x)", 64, 18); }
+    document.getElementById("act-note").textContent = fns[cur].note;
+  }
+  Object.keys(fns).forEach((k, i) => {
+    const b = document.createElement("button"); b.className = "btn"; b.textContent = k; b.setAttribute("aria-pressed", i === 0);
+    b.onclick = () => { cur = k; btns.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); draw(); };
+    btns.appendChild(b);
+  });
+  dChk.onchange = draw; addEventListener("resize", draw); document.addEventListener("themechange", draw); draw();
+})();
+
+// ---------- softmax playground ----------
+(function () {
+  const labels = ["1", "7", "9"], vals = [1.0, 2.5, 1.5], TRUE = 1;
+  const ctr = document.getElementById("sm-controls"), bars = document.getElementById("sm-bars");
+  labels.forEach((l, i) => {
+    const d = document.createElement("div"); d.className = "control";
+    d.innerHTML = `<label>logit for "${l}" <output>${vals[i].toFixed(1)}</output></label><input type="range" min="-4" max="6" step="0.1" value="${vals[i]}">`;
+    d.querySelector("input").oninput = e => { vals[i] = +e.target.value; d.querySelector("output").textContent = vals[i].toFixed(1); render(); };
+    ctr.appendChild(d);
+    bars.insertAdjacentHTML("beforeend", `<div class="bar-row"><span>p("${l}")</span><div class="bar-track"><div class="bar-fill"></div></div><span class="mono"></span></div>`);
+  });
+  function render() {
+    const m = Math.max(...vals), ex = vals.map(v => Math.exp(v - m)), s = ex.reduce((a, b) => a + b, 0), p = ex.map(e => e / s);
+    [...bars.children].forEach((row, i) => {
+      row.querySelector(".bar-fill").style.width = (p[i] * 100).toFixed(1) + "%";
+      row.querySelector(".bar-fill").style.background = i === TRUE ? "var(--how)" : "var(--accent)";
+      row.querySelector(".mono").textContent = p[i].toFixed(3);
+    });
+    document.getElementById("sm-loss").textContent = `cross-entropy = −log(p("7")) = ${(-Math.log(p[TRUE])).toFixed(3)}`;
+  }
+  render();
+})();
+</script>
+</body>
+</html>
