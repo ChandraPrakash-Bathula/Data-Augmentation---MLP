@@ -211,3 +211,28 @@ mark.chg { background: var(--why-soft); color: var(--why); padding: 0 2px; borde
 mark.del { background: var(--warn-soft); color: var(--warn); text-decoration: line-through; padding: 0 2px; border-radius: 3px; }
 .svg-ink { fill: var(--ink); } .svg-ink2 { fill: var(--ink-2); } .svg-ink3 { fill: var(--ink-3); }
 .svg-line { stroke: var(--line); } .svg-acc { stroke: var(--accent); } .svg-accf { fill: var(--accent); }
+
+/* ---------- figures from the Deep Learning blog series ---------- */
+.blog-fig { margin: 22px 0; }
+.blog-fig img {
+  display: block; width: 100%; height: auto; background: #fff; border-radius: 10px;
+  border: 1px solid var(--line); padding: 10px; box-sizing: border-box;
+}
+.blog-fig.narrow img { max-width: 440px; margin: 0 auto; }
+.blog-fig figcaption { font-size: 13px; color: var(--ink-3); margin-top: 6px; text-align: center; }
+.fig-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.fig-row .blog-fig { margin: 0; }
+@media (max-width: 640px) { .fig-row { grid-template-columns: 1fr; } }
+.source-card {
+  display: flex; gap: 14px; align-items: center; background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 12px 16px; margin: 18px 0; font-size: 14.5px; color: var(--ink-2);
+}
+.source-card b { color: var(--ink); }
+.source-card .tag { font: 600 11px var(--font); letter-spacing: .08em; text-transform: uppercase; color: var(--why); white-space: nowrap; }
+.timeline { list-style: none; padding: 0; margin: 20px 0; border-left: 2px solid var(--line); }
+.timeline li { position: relative; padding: 0 0 18px 22px; margin: 0; }
+.timeline li::before { content: ""; position: absolute; left: -7px; top: 6px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); }
+.timeline li.fall::before { background: var(--warn); }
+.timeline li.rev::before { background: var(--why); }
+.timeline .yr { font: 700 15px var(--mono); color: var(--ink); margin-right: 8px; }
+.eqn { font-family: var(--serif); font-size: 20px; text-align: center; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin: 16px 0; overflow-x: auto; }

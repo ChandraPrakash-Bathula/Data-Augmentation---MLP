@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deep Learning History</title>
+<meta name="description" content="How deep learning began with a single neuron in 1957: the perceptron, backpropagation in 1986, the AI winters, 2006 and the 2012 ImageNet breakthrough.">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap page">
+<aside class="toc"></aside>
+<main>
+  <p class="eyebrow">05 · Deep Learning</p>
+  <h1>Deep learning began with a single neuron</h1>
+  <p class="lede">The first half of this week was about data. The second half is about the models that learn from it. Every neural network you will train in this course, from the MNIST MLP to a Transformer, descends from one idea first built in 1957: a single artificial neuron.</p>
+
+  <div class="source-card"><span class="tag">Based on</span><span><b>Deep Learning Part 1: Did you know deep learning began with a single neuron in 1957?</b> by Chandra Prakash Bathula, Towards AI. <a href="https://medium.com/towards-artificial-intelligence/deep-learning-series-a-brief-history-of-deep-learning-evolution-1-92e7873218c7?sk=c0eb6a425e357938cb6b7a86fd268440">Read the full post</a>. Figures on this page are from the post.</span></div>
+
+  <h2 id="why-history">Why start with history?</h2>
+  <p>Neural networks have been declared the future, then declared dead, then declared the future again. Knowing why each swing happened explains the design of modern networks. Almost every "trick" you will meet (hidden layers, non-linear activations, backpropagation, GPUs, big datasets) exists because an earlier version hit a wall.</p>
+  <p>Since 2012, the area called <strong>deep learning</strong> has driven most of the AI applications you use. But the story starts more than half a century earlier.</p>
+
+  <h2 id="perceptron">1957: Rosenblatt's perceptron</h2>
+  <div class="www">
+    <div class="what"><b>What</b><p>The <strong>perceptron</strong> is the first and simplest model we can call a neural network. It was conceived in 1957 by <strong>Frank Rosenblatt</strong>, a psychologist at the Cornell Aeronautical Laboratory, and demonstrated publicly in 1958.</p></div>
+    <div class="how"><b>How</b><p>It takes several inputs, weights each one by how important it is, adds them up, and fires (outputs 1) if the total crosses a threshold. Learning means adjusting the weights from labelled examples.</p></div>
+    <div class="why"><b>Why it mattered</b><p>It was the first machine that <em>learned</em> its own parameters from data instead of being programmed with rules. It is also very close to logistic regression: same weighted sum, different output function and loss. <a href="perceptron-logreg.html">Page 07</a> compares the two in detail.</p></div>
+  </div>
+  <p>The perceptron arrived in the years after World War II, when researchers such as Alan Turing were asking what intelligence is and whether the new "modern computers" of the 1940s and 1950s could have it.</p>
+
+  <h2 id="biology">Biological inspiration: the neuron</h2>
+  <p>Many breakthroughs borrow from biology, and neural networks are no exception. Humans and animals show perception, reflexes, memory and decision-making, and much of that is attributed to networks of <strong>neurons</strong>, the basic building blocks of the brain. Researchers in the 1950s understood neurons only roughly, but that rough picture was enough to start:</p>
+  <ul>
+    <li>A neuron receives electrical signals from other neurons through its <strong>dendrites</strong>.</li>
+    <li>It does some computation inside its cell body.</li>
+    <li>If the input is strong enough, it sends an output pulse along its <strong>axon</strong> to other neurons.</li>
+  </ul>
+  <figure class="blog-fig narrow"><img src="assets/blog/neural-connections.png" alt="Sketch of neurons connected by dendrites and axons, each receiving inputs and sending outputs to others"><figcaption>Neurons take inputs, compute, and pass outputs on to other neurons.</figcaption></figure>
+  <p>Rosenblatt's question was: <em>can we capture this in a simple mathematical form?</em> The answer became the artificial neuron. Inputs <code>x₁ … xₙ</code> play the role of signals arriving at the dendrites. Each input gets a <strong>weight</strong>, because not all information is equally important. The weighted inputs are summed and passed through a function:</p>
+  <div class="eqn">output = F( w₁x₁ + w₂x₂ + … + wₙxₙ )</div>
+  <figure class="blog-fig"><img src="assets/blog/artificial-neuron.png" alt="Artificial neuron: inputs x1 to xn with weights w1 to wn feed a sum and an activation function f, producing an output"><figcaption>The artificial neuron: weighted inputs, a sum (Σ), an activation function (f), an output.</figcaption></figure>
+  <div class="note"><b>Roughly inspired, not a replica</b>A real neuron is a far more complex machine than this. The artificial neuron keeps only the core intuition: weighted inputs, a combination step, and a decision to fire. <a href="neurons.html">Page 06</a> compares the two side by side.</div>
+
+  <h2 id="networks">From one neuron to networks</h2>
+  <p>A neuron in the brain never works alone. It sits inside a dense web of connections. That raised the obvious question: <em>why stop at one artificial neuron?</em></p>
+  <div class="fig-row">
+    <figure class="blog-fig"><img src="assets/blog/single-neuron.png" alt="A single neuron with several input arrows and one output arrow"><figcaption>One neuron on its own.</figcaption></figure>
+    <figure class="blog-fig"><img src="assets/blog/bio-vs-inspired-network.png" alt="Left: a biological structure of connected neurons. Right: an inspired neural network with input layer, two hidden layers and an output layer"><figcaption>Biological structure (left) and the network structure it inspired (right).</figcaption></figure>
+  </div>
+  <p>The push toward multi-layer networks was also forced by a hard limit. A single perceptron can only draw one straight line (a hyperplane) through the data, so it cannot solve problems that are not <strong>linearly separable</strong>, such as XOR. Marvin Minsky and Seymour Papert made this limit famous in their 1969 book <em>Perceptrons</em>. Stacking neurons into layers solves XOR, but in 1969 nobody had a practical way to train the hidden neurons.</p>
+
+  <h2 id="backprop">1986: backpropagation makes networks trainable</h2>
+  <div class="www">
+    <div class="what"><b>What</b><p>In 1986, <strong>David Rumelhart, Geoffrey Hinton and Ronald Williams</strong> published <em>"Learning representations by back-propagating errors"</em> in <em>Nature</em>. It showed how to train every weight in a multi-layer network, including the hidden ones.</p></div>
+    <div class="how"><b>How</b><p>Backpropagation is the <strong>chain rule</strong> of calculus applied layer by layer. The error at the output is sent backward through the network, and each weight learns how much it contributed to that error.</p></div>
+    <div class="why"><b>Why it mattered</b><p>For the first time there were networks of neurons that could actually be trained. The whole field of <strong>artificial neural networks</strong> took off from here. Hinton, one of the authors, is often called a "godfather of AI".</p></div>
+  </div>
+
+  <h2 id="winters">Hype and the AI winters</h2>
+  <p>Neural networks have gone through two big cycles of hype followed by disappointment:</p>
+  <ul class="timeline">
+    <li class="fall"><span class="yr">1970s</span><strong>First winter.</strong> After <em>Perceptrons</em> (1969) and broad cuts to AI funding, research on neural networks shrank to a handful of labs.</li>
+    <li class="rev"><span class="yr">1986</span><strong>Revival.</strong> Backpropagation brings new excitement and new promises of machines that think like people.</li>
+    <li class="fall"><span class="yr">Late 1980s to 2000s</span><strong>Second slump.</strong> There was not enough data or computing power to train large networks. Promises outran results, funding dried up, and practitioners moved to methods that worked better at the time: <strong>support vector machines</strong> (a favourite in the late 1990s), <strong>random forests</strong> and <strong>gradient-boosted trees</strong>. These dominated until roughly 2009.</li>
+  </ul>
+  <div class="tip"><b>A contemporary issue</b>Each winter followed the same pattern: over-promising, a real technical limit, and then lost funding. It is worth asking which of today's AI claims fit that pattern.</div>
+
+  <h2 id="depth">Why deeper networks broke backprop</h2>
+  <p>Brains rely on many layers of neural connections for thinking, memory and recall. So to build powerful models we want <strong>deep</strong> networks, meaning many layers. But in the late 1980s and 1990s, backpropagation kept failing as layers were added.</p>
+  <figure class="blog-fig"><img src="assets/blog/depth-breaks-backprop.png" alt="Two network diagrams: a 2-layered network and an N-layered network; as layers increase, backpropagation fails"><figcaption>As the number of layers grew, backpropagation started to fail.</figcaption></figure>
+  <figure class="blog-fig"><img src="assets/blog/n-layered-depth.png" alt="Input passes through layers L1, L2, L3 up to Ln before reaching the output: N-layered depth"><figcaption>Depth = the number of layers the signal passes through.</figcaption></figure>
+  <p>The main culprit was the <strong>vanishing gradient</strong>. Backprop multiplies one derivative per layer, and the sigmoid's derivative is at most 0.25. Through ten layers the gradient can shrink by a factor of about a million, so the early layers barely learn. <a href="mlp.html#activations">Page 08</a> shows how ReLU fixed this.</p>
+
+  <h2 id="comeback">2006 and 2012: the comeback</h2>
+  <h3>2006: Hinton shows deep networks can be trained</h3>
+  <p>While most of the field moved on, Hinton kept working on neural networks for two decades after 1986. In 2006 he and his co-authors published <em>"A fast learning algorithm for deep belief nets"</em>, which trained deep networks one layer at a time before fine-tuning the whole stack. It laid the foundation for the deep learning we study today, but there was little hype and few people paid attention at first.</p>
+  <h3>2012: the ImageNet moment</h3>
+  <p>The turning point came at the 2012 ImageNet Large Scale Visual Recognition Challenge, with about <strong>1.2 million labelled training images</strong> in 1,000 categories. A deep convolutional network trained on GPUs (AlexNet, from Hinton's group) beat every traditional computer-vision method by a wide margin. The research world took deep learning seriously almost overnight.</p>
+  <p>Google, Facebook, Amazon and top universities then invested heavily in three things: <strong>computing power</strong> (especially GPUs), <strong>researchers</strong>, and the <strong>huge datasets</strong> these companies held. That combination is what made the last decade of AI possible.</p>
+  <div class="note"><b>Connect it back to this week</b>2012 succeeded because of data and compute, not a brand-new idea. The same lesson drives the first half of this week: when data is limited, models overfit, and augmentation is one way to stretch the data you have.</div>
+
+  <h2 id="impact">Deep learning's impact</h2>
+  <div class="table-wrap"><table>
+    <tr><th>Area</th><th>What deep learning does</th></tr>
+    <tr><td>Self-driving cars</td><td>Object detection, path planning and decision-making (Tesla, Waymo)</td></tr>
+    <tr><td>Voice assistants</td><td>Understanding speech and natural language (Siri, Alexa, Google Assistant)</td></tr>
+    <tr><td>Language</td><td>Sentiment analysis, machine translation, chatbots</td></tr>
+    <tr><td>Healthcare</td><td>Medical image analysis, disease diagnosis, drug discovery</td></tr>
+  </table></div>
+
+  <h2 id="summary">The story at a glance</h2>
+  <ul class="timeline">
+    <li><span class="yr">1957</span>Rosenblatt conceives the perceptron, a single trainable artificial neuron.</li>
+    <li class="fall"><span class="yr">1969</span>Minsky &amp; Papert's <em>Perceptrons</em> shows that a single layer cannot solve XOR.</li>
+    <li class="rev"><span class="yr">1986</span>Rumelhart, Hinton &amp; Williams popularize backpropagation for multi-layer networks.</li>
+    <li class="fall"><span class="yr">1990s</span>Too little data and compute; deep networks fail to train. SVMs and tree ensembles take over.</li>
+    <li class="rev"><span class="yr">2006</span>Hinton et al. show how to train deep belief nets layer by layer.</li>
+    <li class="rev"><span class="yr">2012</span>AlexNet wins ImageNet on GPUs, and the deep learning era begins.</li>
+  </ul>
+
+  <h2 id="references">References</h2>
+  <ul>
+    <li>Bathula, C. P. Deep Learning Part 1: Did you know deep learning began with a single neuron in 1957? <em>Towards AI</em>.</li>
+    <li>Rumelhart, D. E., Hinton, G. E., &amp; Williams, R. J. (1986). Learning representations by back-propagating errors. <em>Nature</em>, 323(6088), 533-536.</li>
+    <li>Hinton, G. E., Osindero, S., &amp; Teh, Y.-W. (2006). A fast learning algorithm for deep belief nets. <em>Neural Computation</em>, 18(7), 1527-1554.</li>
+    <li>Krizhevsky, A., Sutskever, I., &amp; Hinton, G. E. (2012). ImageNet classification with deep convolutional neural networks. <em>NeurIPS</em>.</li>
+    <li>Minsky, M., &amp; Papert, S. (1969). <em>Perceptrons</em>. MIT Press.</li>
+  </ul>
+</main>
+</div>
+<script src="assets/site.js"></script>
+</body>
+</html>

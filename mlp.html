@@ -18,15 +18,17 @@
 <div class="wrap page">
 <aside class="toc"></aside>
 <main>
-  <p class="eyebrow">02 · Deep Learning Basics</p>
+  <p class="eyebrow">08 · Deep Learning</p>
   <h1>From one perceptron to a multi-layer perceptron</h1>
-  <p class="lede">The MNIST baseline in <code>MNIST.ipynb</code> is only about 15 lines of PyTorch. This page walks through what each line does and why the architecture looks the way it does.</p>
+  <p class="lede">The last three pages built up a single neuron: its history, its biology, and its two classic forms. This page stacks those neurons into the MLP from <code>MNIST.ipynb</code>, which is only about 15 lines of PyTorch, and explains why the architecture looks the way it does.</p>
 
-  <h2 id="perceptron">The perceptron: one neuron</h2>
+  <div class="source-card"><span class="tag">Series</span><span>This page continues the Deep Learning series by Chandra Prakash Bathula on Towards AI: <a href="https://medium.com/towards-artificial-intelligence/deep-learning-series-a-brief-history-of-deep-learning-evolution-1-92e7873218c7?sk=c0eb6a425e357938cb6b7a86fd268440">Part 1: history</a> · <a href="https://medium.com/towards-artificial-intelligence/deep-learning-biological-neural-network-vs-artificial-neural-network-580f92129b47?sk=cbe75a78211ce42147829df600ade1db">Part 2: biological vs artificial</a> · <a href="https://medium.com/towards-artificial-intelligence/deep-learning-perceptron-vs-logistic-regression-3f73f91e01d3?sk=563986820350d714c9297ffe5c87af0b">Part 3: perceptron vs logistic regression</a>.</span></div>
+
+  <h2 id="perceptron">Recap: one neuron draws one line</h2>
   <div class="www">
-    <div class="what"><b>What</b><p>A perceptron (Rosenblatt, 1958) takes inputs <code>x₁…xₙ</code>, multiplies each by a weight, adds a bias, and fires if the total crosses zero: <code>ŷ = step(w·x + b)</code>.</p></div>
-    <div class="how"><b>How</b><p>Geometrically, <code>w·x + b = 0</code> is a straight line (a hyperplane in higher dimensions). Points on one side are class 1 and points on the other side are class 0. Learning means moving that line.</p></div>
-    <div class="why"><b>Why it's not enough</b><p>A single line can only separate <strong>linearly separable</strong> data. The classic counterexample is XOR: no single straight line splits <code>{(0,1),(1,0)}</code> from <code>{(0,0),(1,1)}</code>.</p></div>
+    <div class="what"><b>What we have so far</b><p>A single neuron computes <code>z = w·x + b</code> and applies an activation. With a step it is the perceptron (<a href="perceptron-logreg.html">page 07</a>); with a sigmoid it is logistic regression.</p></div>
+    <div class="how"><b>What it can do</b><p>Geometrically, <code>w·x + b = 0</code> is a straight line (a hyperplane in higher dimensions). Points on one side are class 1 and points on the other side are class 0. Learning means moving that line.</p></div>
+    <div class="why"><b>Why it's not enough</b><p>A single line can only separate <strong>linearly separable</strong> data. The classic counterexample is XOR: no single straight line splits <code>{(0,1),(1,0)}</code> from <code>{(0,0),(1,1)}</code>. This is the limit from 1969 on <a href="deep-learning-history.html#networks">page 05</a>.</p></div>
   </div>
   <figure class="figure">
     <svg viewBox="0 0 520 200" role="img" aria-label="AND is linearly separable, XOR is not">

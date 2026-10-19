@@ -3,10 +3,13 @@
   const PAGES = [
     { href: "index.html", label: "Home" },
     { href: "tensors.html", label: "NumPy → PyTorch" },
-    { href: "mlp.html", label: "Perceptron → MLP" },
     { href: "text-augmentation.html", label: "Text Augmentation" },
     { href: "image-augmentation.html", label: "Image Augmentation" },
     { href: "why-augmentation.html", label: "Why It Works" },
+    { href: "deep-learning-history.html", label: "Deep Learning History" },
+    { href: "neurons.html", label: "Biological vs Artificial" },
+    { href: "perceptron-logreg.html", label: "Perceptron vs LogReg" },
+    { href: "mlp.html", label: "Perceptron → MLP" },
     { href: "assignment.html", label: "Assignment Guide" },
   ];
   const here = (location.pathname.split("/").pop() || "index.html");

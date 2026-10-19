@@ -26,13 +26,17 @@
     <p>Most pages also have <strong>live demos</strong> you can play with in the browser. They don't need Python or an internet connection.</p>
 
     <h2 id="pages">The pages</h2>
+    <p>The week has two halves. <strong>Pages 01 to 04</strong> are about data: tensors, then text and image augmentation and why it works. <strong>Pages 05 to 08</strong> move to deep learning: its history, the neuron, the perceptron, and finally the MLP you train in the assignment.</p>
     <div class="cards">
       <a class="card" href="tensors.html"><span class="num">01</span><h3>NumPy → PyTorch</h3><p>Arrays, tensors, shapes, broadcasting, reshaping, and the preprocessing every dataset goes through.</p></a>
-      <a class="card" href="mlp.html"><span class="num">02</span><h3>Perceptron → MLP</h3><p>From one neuron to the MNIST baseline. Why ReLU, how the 109,386 parameters are counted, and what one training step does.</p></a>
-      <a class="card" href="text-augmentation.html"><span class="num">03</span><h3>Text Augmentation</h3><p>Synonym replacement, swap, insertion, deletion, typos, back-translation, and when each one breaks the label.</p></a>
-      <a class="card" href="image-augmentation.html"><span class="num">04</span><h3>Image Augmentation</h3><p>Flips, rotation, colour jitter, crops, noise, blur, and erasing, with an interactive augmentation pipeline.</p></a>
-      <a class="card" href="why-augmentation.html"><span class="num">05</span><h3>Why Augmentation Works</h3><p>Overfitting, invariance, vicinal risk, and augmentation as a regulariser. The theory behind the tricks.</p></a>
-      <a class="card" href="assignment.html"><span class="num">06</span><h3>Assignment Guide</h3><p>MLP scaling (5k → 50k) and the CIFAR-10 augmentation experiment: setup, plots, and what to reflect on.</p></a>
+      <a class="card" href="text-augmentation.html"><span class="num">02</span><h3>Text Augmentation</h3><p>Synonym replacement, swap, insertion, deletion, typos, back-translation, and when each one breaks the label.</p></a>
+      <a class="card" href="image-augmentation.html"><span class="num">03</span><h3>Image Augmentation</h3><p>Flips, rotation, colour jitter, crops, noise, blur, and erasing, with an interactive augmentation pipeline.</p></a>
+      <a class="card" href="why-augmentation.html"><span class="num">04</span><h3>Why Augmentation Works</h3><p>Overfitting, invariance, vicinal risk, and augmentation as a regulariser. The theory behind the tricks.</p></a>
+      <a class="card" href="deep-learning-history.html"><span class="num">05</span><h3>Deep Learning History</h3><p>From Rosenblatt's 1957 perceptron to backprop in 1986, the AI winters, and the 2012 ImageNet moment.</p></a>
+      <a class="card" href="neurons.html"><span class="num">06</span><h3>Biological vs Artificial Neurons</h3><p>Dendrites, weights and firing: how one brain cell became the artificial neuron, with a live neuron demo.</p></a>
+      <a class="card" href="perceptron-logreg.html"><span class="num">07</span><h3>Perceptron vs Logistic Regression</h3><p>Same weighted sum, different last step: a switch vs a dimmer. Train both live on the same data.</p></a>
+      <a class="card" href="mlp.html"><span class="num">08</span><h3>Perceptron → MLP</h3><p>From one neuron to the MNIST baseline. Why ReLU, how the 109,386 parameters are counted, and what one training step does.</p></a>
+      <a class="card" href="assignment.html"><span class="num">09</span><h3>Assignment Guide</h3><p>MLP scaling (5k → 50k) and the CIFAR-10 augmentation experiment: setup, plots, and what to reflect on.</p></a>
     </div>
 
     <h2 id="map">How the week fits together</h2>
@@ -49,8 +53,8 @@
             <line x1="130" y1="95" x2="162" y2="95" marker-end="url(#ar)"/><line x1="295" y1="95" x2="327" y2="95" marker-end="url(#ar)"/>
             <line x1="470" y1="95" x2="502" y2="95" marker-end="url(#ar)"/><line x1="615" y1="95" x2="647" y2="95" marker-end="url(#ar)"/>
           </g>
-          <text x="230" y="160" class="svg-ink3" font-size="11.5">Page 01</text><text x="400" y="160" class="svg-ink3" font-size="11.5">Pages 03 · 04 · 05</text>
-          <text x="560" y="160" class="svg-ink3" font-size="11.5">Page 02</text><text x="700" y="160" class="svg-ink3" font-size="11.5">Page 06</text>
+          <text x="230" y="160" class="svg-ink3" font-size="11.5">Page 01</text><text x="400" y="160" class="svg-ink3" font-size="11.5">Pages 02 · 03 · 04</text>
+          <text x="560" y="160" class="svg-ink3" font-size="11.5">Pages 05 to 08</text><text x="700" y="160" class="svg-ink3" font-size="11.5">Page 09</text>
           <text x="400" y="35" class="svg-ink2" font-size="12">augmented on the fly, a different version every epoch</text>
         </g>
       </svg>
@@ -60,14 +64,14 @@
     <div class="table-wrap"><table>
       <tr><th>Activity</th><th>Goal</th><th>Deliverable</th><th>Read</th></tr>
       <tr><td><strong>1. Data Foundations</strong></td><td>Tensor operations with NumPy and PyTorch</td><td>Notebook: creation, indexing, reshaping, arithmetic</td><td><a href="tensors.html">01</a></td></tr>
-      <tr><td><strong>2. Text Augmentation</strong></td><td>Augment a small text dataset</td><td>Notebook: augmentation on 10 reviews + reflections</td><td><a href="text-augmentation.html">03</a></td></tr>
-      <tr><td><strong>3. Image Augmentation</strong></td><td>Augment CIFAR-10, observe generalization</td><td>Notebook: original vs augmented visualizations</td><td><a href="image-augmentation.html">04</a></td></tr>
-      <tr><td><strong>Assignment</strong></td><td>MLP scaling &amp; augmentation impact</td><td>Notebook: code, train/test curves, reflections</td><td><a href="assignment.html">06</a></td></tr>
+      <tr><td><strong>2. Text Augmentation</strong></td><td>Augment a small text dataset</td><td>Notebook: augmentation on 10 reviews + reflections</td><td><a href="text-augmentation.html">02</a></td></tr>
+      <tr><td><strong>3. Image Augmentation</strong></td><td>Augment CIFAR-10, observe generalization</td><td>Notebook: original vs augmented visualizations</td><td><a href="image-augmentation.html">03</a></td></tr>
+      <tr><td><strong>Assignment</strong></td><td>MLP scaling &amp; augmentation impact</td><td>Notebook: code, train/test curves, reflections</td><td><a href="assignment.html">09</a></td></tr>
     </table></div>
     <div class="note"><b>Also this week</b>Review the syllabus in Canvas, explore the Week 1 module, and post your introduction in the Discussion Forum.</div>
 
     <h2 id="notebooks">Companion notebooks</h2>
-    <p>These pages expand on the notebooks in this folder. Open them in Colab alongside the guide:</p>
+    <p>These pages expand on the notebooks in the <code>AA-5750 Week-1</code> folder. Open them in Colab alongside the guide:</p>
     <ul>
       <li><code>Intro_To_Tensors (1).ipynb</code>: NumPy arrays and PyTorch tensors</li>
       <li><code>MNIST.ipynb</code>: the 5,000-sample MLP baseline</li>
